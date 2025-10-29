@@ -1,9 +1,12 @@
+import HeroSection from "@/components/hero"
+import HomeContent from "@/components/homecontent"
 import { Button } from "@/components/ui/button"
 
 export default function Home() {
   return (
-    <div>
-      <Button variant='destructive'>Click me</Button>
+    <div className="mt-30">
+      <HeroSection/>
+      <HomeContent/>
     </div>
   )
 }
