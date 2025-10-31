@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/header";
+import { Toaster } from "@/components/ui/sonner"
 import { ClerkProvider } from "@clerk/nextjs";
 const inter = Inter({ subsets: ["latin"] });
 export const metadata = {
@@ -15,6 +16,7 @@ export default function RootLayout({ children }) {
         <body className={`${inter.className}`}>
           {/* Header */}
           <Header />
+          <Toaster/>
           <main className="min-h-screen">{children}</main>
 
           {/* Footer */}
