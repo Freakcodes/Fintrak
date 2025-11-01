@@ -15,8 +15,6 @@ const serializeTransaction = (obj) => {
   return serialized;
 };
 export async function createAccount(data) {
- 
-
   try {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized User");
@@ -91,7 +89,4 @@ export const getUserAccounts=async()=>{
   }catch(error){
       throw new Error(error);
   }
- 
-
-  
 }

@@ -49,12 +49,13 @@ const AccountCard = ({account}) => {
   return (
     
       <Card>
-        {/* <Link href={'/account/id'} > */}
+        
         <CardHeader>
           <CardTitle>{name}</CardTitle>
          
           <Switch checked={isDefault} onClick={handleDefaultChange} disabled={updateDefaultLoading}/>
         </CardHeader>
+        <Link href={`/account/${id}`} >
         <CardContent>
           <p className="text-2xl font-bold">
             ${parseFloat(balance).toFixed(2)}
@@ -73,7 +74,7 @@ const AccountCard = ({account}) => {
             Income
           </div>
         </CardFooter>
-        {/* </Link> */}
+        </Link>
       </Card>
     
   );

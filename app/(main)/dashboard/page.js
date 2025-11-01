@@ -8,7 +8,7 @@ import { getUserAccounts } from "@/actions/dashboard";
 import AccountCard from "./_components/account-card";
 const DashboardPage = async() => {
   const accounts=await getUserAccounts();
-  // console.log(accounts);
+  
   return (
   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 
