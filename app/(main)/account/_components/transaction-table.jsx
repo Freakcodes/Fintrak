@@ -1,5 +1,5 @@
 "use client";
-import React, { use } from "react";
+import React, { use, useState } from "react";
 import {
   Table,
   TableBody,
@@ -21,7 +21,14 @@ import {
 } from "@/components/ui/tooltip";
 
 import { Button } from "@/components/ui/button";
-import { Clock, MoreHorizontal, RefreshCcw } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  MoreHorizontal,
+  RefreshCcw,
+  Search,
+} from "lucide-react";
 const RECURRING_INTERVALS = {
   DAILY: "Daily",
   WEEKLY: "Weekly",
@@ -37,25 +44,109 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { set } from "zod";
+import { Input } from "@/components/ui/input";
 const TransactionTable = ({ transactions }) => {
-  const router=useRouter();
+  const [selectedId,setSelectedId]=useState([]);
+  const filteredTransactions = transactions;
+  const [sortconfig, setSortConfig] = useState({
+    field: "date",
+    direction: "desc",
+  });
+  const [searchTerm,setSearchTerm]=useState("");
+  const[typeFilter,setTypeFilter]=useState("");
+  const [recurringFilter,setRecurringFilter]=useState("");
+  const handleSort = (field) => {
+    setSortConfig((current) => ({
+      field,
+      direction:
+        current.field === field && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+  //if aldready selected then deselect else select
+  const handleSelect=(id)=>{
+      setSelectedId((current)=>{{
+        if(current.includes(id)){
+          return current.filter((item)=>item!==id);
+        }else{
+          return [...current,id];
+        }
+      }})
+  }
+
+  const handleSelectAll=()=>{
+    if(selectedId.length=== filteredTransactions.length){
+      //if all selected then deselect all
+      setSelectedId([]);
+    }else{
+      setSelectedId(transactions.map((t)=>t.id));
+    }
+  }
+  const router = useRouter();
   return (
     <div className="container mx-auto">
       {/* Filters */}
-
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground"/>
+          <Input className="pl-8"
+          placeholder="Search transactions..."
+          value={searchTerm}
+          onChange={(e)=>setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
       {/* Transactions */}
       <Table>
         <TableCaption>A list of your recent invoices.</TableCaption>
         <TableHeader>
           <TableRow>
             <TableHead>
-              <Checkbox />
+              <Checkbox onClick={handleSelectAll} />
             </TableHead>
-            <TableHead className="text-muted-foreground">Date</TableHead>
+            <TableHead
+              className="text-muted-foreground "
+              onClick={() => handleSort("date")}
+            >
+              <div className="flex items-center">
+                Date{" "}
+              {sortconfig.field == "date" &&
+                (sortconfig.direction == "asc" ? (
+                  <ChevronUp />
+                ) : (
+                  <ChevronDown />
+                ))}
+              </div>
+              
+            </TableHead>
             <TableHead className="text-muted-foreground">Description</TableHead>
-            <TableHead className="text-muted-foreground">Category</TableHead>
-            <TableHead className="text-right text-muted-foreground">
-              Amount
+            <TableHead
+              className="text-muted-foreground"
+              onClick={() => handleSort("category")}
+            >
+              <div className="flex items-center">
+                Category{" "}
+                {sortconfig.field === "category" &&
+                  (sortconfig.direction === "asc" ? (
+                    <ChevronUp />
+                  ) : (
+                    <ChevronDown />
+                  ))}
+              </div>
+            </TableHead>
+<TableHead
+              className="text-muted-foreground"
+              onClick={() => handleSort("amount")}
+            >
+              <div className="flex items-center">
+                Amount{" "}
+                {sortconfig.field === "amount" &&
+                  (sortconfig.direction === "asc" ? (
+                    <ChevronUp />
+                  ) : (
+                    <ChevronDown />
+                  ))}
+              </div>
             </TableHead>
             <TableHead className="text-right text-muted-foreground">
               Reccuring
@@ -63,10 +154,13 @@ const TransactionTable = ({ transactions }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {transactions.map((transaction) => (
+          {filteredTransactions.map((transaction) => (
             <TableRow key={transaction.id}>
               <TableCell>
-                <Checkbox />
+                <Checkbox 
+                  onCheckedChange={()=>handleSelect(transaction.id)}
+                  checked={selectedId.includes(transaction.id)}
+                />
               </TableCell>
               <TableCell className="font-medium">
                 {format(new Date(transaction.date), "PP")}
@@ -117,21 +211,22 @@ const TransactionTable = ({ transactions }) => {
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal />
-                    </Button>
+                    <MoreHorizontal />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                   
                     <DropdownMenuLabel
-                    onClick={
-                      () => router.push(`/account/transactions?edit=${transaction.id}`)
-                    }
-                    >Edit</DropdownMenuLabel>
-                  <DropdownMenuLabel className="text-destructive">
-                    Delete
-                  </DropdownMenuLabel>
-                   
+                      className="cursor-pointer"
+                      onClick={() =>
+                        router.push(
+                          `/account/transactions?edit=${transaction.id}`
+                        )
+                      }
+                    >
+                      Edit
+                    </DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-destructive cursor-pointer">
+                      Delete
+                    </DropdownMenuLabel>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
