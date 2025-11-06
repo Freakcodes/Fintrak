@@ -1,5 +1,5 @@
 "use client";
-import React, { use, useMemo, useState } from "react";
+import React, { use, useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -56,6 +56,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import useFetch from "@/hooks/use-fetch";
+import { deleteBulkTransactions } from "@/actions/accounts";
+import { toast } from "sonner";
+import { BarLoader } from "react-spinners";
 
 const TransactionTable = ({ transactions }) => {
   const [selectedId, setSelectedId] = useState([]);
@@ -117,7 +121,7 @@ const TransactionTable = ({ transactions }) => {
       return sortconfig.direction === "asc" ? comparison : -comparison;
     });
     return results;
-  }, [searchTerm, typeFilter, recurringFilter,sortconfig]);
+  }, [searchTerm, typeFilter, recurringFilter, sortconfig]);
   const handleSort = (field) => {
     setSortConfig((current) => ({
       field,
@@ -138,6 +142,47 @@ const TransactionTable = ({ transactions }) => {
     });
   };
 
+  const [deletedIdsForToast, setDeletedIdsForToast] = useState([]);
+  const {
+    data: deleted,
+    loading: deleteLoading,
+    fn: deleteFn,
+    error: deleteError,
+  } = useFetch(deleteBulkTransactions);
+
+  const handleBulkDelete = async () => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete ${selectedId.length} transactions?`
+      )
+    ) {
+      return;
+    }
+    setDeletedIdsForToast(selectedId); // only for toast
+    deleteFn(selectedId);
+  };
+
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!deleteLoading && deleted && deletedIdsForToast.length > 0) {
+      toast.success(
+        deletedIdsForToast.length === 1
+          ? "Transaction deleted successfully"
+          : `${deletedIdsForToast.length} transactions deleted successfully`
+      );
+      setDeletedIdsForToast([]); // reset after showing toast
+
+      // Remove deleted IDs from selectedIds
+      setSelectedId((current) =>
+        current.filter((id) => !deletedIdsForToast.includes(id))
+      );
+    }
+
+    if (!deleteLoading && deleteError) {
+      toast.error(deleteError.message || "Failed to delete transaction(s)");
+    }
+  }, [deleted, deleteLoading, deleteError, deletedIdsForToast]);
   const handleSelectAll = () => {
     if (selectedId.length === filteredTransactions.length) {
       //if all selected then deselect all
@@ -147,9 +192,11 @@ const TransactionTable = ({ transactions }) => {
     }
   };
 
-  const router = useRouter();
   return (
     <div className="container mx-auto">
+      {deleteLoading && (
+        <BarLoader className="mt-4" width="100%" color="#9333ea" />
+      )}
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -185,7 +232,7 @@ const TransactionTable = ({ transactions }) => {
         </div>
         <div>
           {selectedId.length > 0 && (
-            <Button variant="destructive">
+            <Button variant="destructive" onClick={handleBulkDelete}>
               <Trash className="mr-2 h-4 w-4" />
               Delete {selectedId.length} Selected
             </Button>
@@ -335,7 +382,13 @@ const TransactionTable = ({ transactions }) => {
                     >
                       Edit
                     </DropdownMenuLabel>
-                    <DropdownMenuLabel className="text-destructive cursor-pointer">
+                    <DropdownMenuLabel
+                      className="text-destructive cursor-pointer"
+                      onClick={async () => {
+                        setDeletedIdsForToast([transaction.id]);
+                        deleteFn([transaction.id]);
+                      }}
+                    >
                       Delete
                     </DropdownMenuLabel>
                   </DropdownMenuContent>

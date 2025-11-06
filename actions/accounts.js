@@ -93,3 +93,61 @@ const serializeTransaction = (obj) => {
             return {success:false,message:error.message}
         }
   }
+
+  export const deleteBulkTransactions=async(transactionIds)=>
+  {
+    try {
+        const {userId}=await auth();
+        
+        if(!userId)throw new Error("Unauthorized User");
+        
+        const user =await db.user.findUnique({
+            where:{clerkUserId:userId},
+          })
+          
+        if(!user){
+            throw new Error("User not found");
+        }
+        //fetch transactions to be deleted
+        const transactions=await db.transaction.findMany({
+            where:{
+                id:{in:transactionIds},
+                userId:user.id
+            }
+        });
+
+        const accountBalanceChanges=transactions.reduce((acc,transactions)=>{
+            const change=transactions.type==="INCOME"?-transactions.amount:transactions.amount;
+            acc[transactions.accountId]=(acc[transactions.accountId]||0)+change;
+            return acc; 
+        },{});
+
+        //Delete transactions and update account balances in a single transaction 
+        await db.$transaction(async(tx)=>{
+            await tx.transaction.deleteMany({
+                where:{
+                    id:{in:transactionIds},
+                    userId:user.id
+                }
+            });
+            for(const [accountId,change] of Object.entries(accountBalanceChanges)){
+                await tx.account.update({
+                    where:{id:accountId,userId:user.id},
+                    data:{
+                        balance:{
+                            increment:change
+                        }
+                    }
+                })
+            }
+        });
+        revalidatePath("/dashboard");
+        revalidatePath(`/account/${user.id}`, "page");
+
+
+        return {success:true,message:"Transactions deleted successfully"};
+    }catch(error){
+        return {success:false,message:error.message}
+    }
+        
+  }
