@@ -34,13 +34,14 @@ import { ReceiptScanner } from "./recipt-scanner";
 export default function AddTransactionForm({
   accounts,
   categories,
-  editMode = false,
+  editMode = true,
   initialData = null,
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
-
+  console.log(editId);
+  
   const {
     register,
     handleSubmit,

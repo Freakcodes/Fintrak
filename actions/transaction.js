@@ -335,3 +335,4 @@ function calculateNextRecurringDate(startDate, interval) {
 
   return date;
 }
+

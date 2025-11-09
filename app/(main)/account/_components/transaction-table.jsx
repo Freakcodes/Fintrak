@@ -376,7 +376,7 @@ const TransactionTable = ({ transactions }) => {
                       className="cursor-pointer"
                       onClick={() =>
                         router.push(
-                          `/account/transactions?edit=${transaction.id}`
+                          `/transaction/create?edit=${transaction.id}`
                         )
                       }
                     >
