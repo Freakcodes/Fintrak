@@ -4,11 +4,13 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 // import { GoogleGenerativeAI } from "@google/generative-ai";
-// import aj from "@/lib/arcjet";
-// import { request } from "@arcjet/next";
-
+import aj from "@/lib/arcjet";
+import { request } from "@arcjet/next";
+import {GoogleGenAI} from "@google/genai"
 // const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
+const genAI= new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
 const serializeAmount = (obj) => ({
   ...obj,
   amount: obj.amount.toNumber(),
@@ -20,31 +22,31 @@ export async function createTransaction(data) {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
-    // // Get request data for ArcJet
-    // const req = await request();
+    // Get request data for ArcJet
+    const req = await request();
 
-    // // Check rate limit
-    // const decision = await aj.protect(req, {
-    //   userId,
-    //   requested: 1, // Specify how many tokens to consume
-    // });
+    // Check rate limit
+    const decision = await aj.protect(req, {
+      userId,
+      requested: 1, // Specify how many tokens to consume
+    });
 
-    // if (decision.isDenied()) {
-    //   if (decision.reason.isRateLimit()) {
-    //     const { remaining, reset } = decision.reason;
-    //     console.error({
-    //       code: "RATE_LIMIT_EXCEEDED",
-    //       details: {
-    //         remaining,
-    //         resetInSeconds: reset,
-    //       },
-    //     });
+    if (decision.isDenied()) {
+      if (decision.reason.isRateLimit()) {
+        const { remaining, reset } = decision.reason;
+        console.error({
+          code: "RATE_LIMIT_EXCEEDED",
+          details: {
+            remaining,
+            resetInSeconds: reset,
+          },
+        });
 
-    //     throw new Error("Too many requests. Please try again later.");
-    //   }
+        throw new Error("Too many requests. Please try again later.");
+      }
 
-    //   throw new Error("Request blocked");
-    // }
+      throw new Error("Request blocked");
+    }
 
     const user = await db.user.findUnique({
       where: { clerkUserId: userId },
@@ -230,21 +232,18 @@ export async function getUserTransactions(query = {}) {
 // Scan Receipt
 export async function scanReceipt(file) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    // Convert File to ArrayBuffer
+    // Convert File → Base64
     const arrayBuffer = await file.arrayBuffer();
-    // Convert ArrayBuffer to Base64
     const base64String = Buffer.from(arrayBuffer).toString("base64");
 
     const prompt = `
       Analyze this receipt image and extract the following information in JSON format:
       - Total amount (just the number)
-      - Date (in ISO format)
-      - Description or items purchased (brief summary)
+      - Date (ISO format)
+      - Description or items purchased
       - Merchant/store name
-      - Suggested category (one of: housing,transportation,groceries,utilities,entertainment,food,shopping,healthcare,education,personal,travel,insurance,gifts,bills,other-expense )
-      
+      - Suggested category (one of: housing,transportation,groceries,utilities,entertainment,food,shopping,healthcare,education,personal,travel,insurance,gifts,bills,other-expense)
+
       Only respond with valid JSON in this exact format:
       {
         "amount": number,
@@ -254,41 +253,66 @@ export async function scanReceipt(file) {
         "category": "string"
       }
 
-      If its not a recipt, return an empty object
+      If this is not a receipt, return {}.
     `;
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: base64String,
-          mimeType: file.type,
+   
+    const result = await genAI.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                data: base64String,
+                mimeType: file.type,
+              },
+            },
+            { text: prompt },
+          ],
         },
-      },
-      prompt,
-    ]);
+      ],
+    });
 
-    const response = await result.response;
-    const text = response.text();
-    const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
+    // ✅ Extract Response Correctly
+    const rawText =
+      result.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    try {
-      const data = JSON.parse(cleanedText);
-      return {
-        amount: parseFloat(data.amount),
-        date: new Date(data.date),
-        description: data.description,
-        category: data.category,
-        merchantName: data.merchantName,
-      };
-    } catch (parseError) {
-      console.error("Error parsing JSON response:", parseError);
-      throw new Error("Invalid response format from Gemini");
+    if (!rawText) {
+      throw new Error("Empty response from Gemini");
     }
+
+    // Remove code blocks (if any)
+    const cleanedText = rawText
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    let data;
+    try {
+      data = JSON.parse(cleanedText);
+    } catch (err) {
+      console.error("JSON parse error:", cleanedText);
+      throw new Error("Invalid JSON from Gemini");
+    }
+
+    // If it's not a receipt
+    if (!data || Object.keys(data).length === 0) return {};
+
+    return {
+      amount: parseFloat(data.amount),
+      date: data.date ? new Date(data.date) : null,
+      description: data.description || "",
+      merchantName: data.merchantName || "",
+      category: data.category || "other-expense",
+    };
   } catch (error) {
     console.error("Error scanning receipt:", error);
     throw new Error("Failed to scan receipt");
   }
 }
+
 
 // Helper function to calculate next recurring date
 function calculateNextRecurringDate(startDate, interval) {
