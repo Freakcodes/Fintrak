@@ -7,8 +7,8 @@
     "email": "email dev",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "prisma generate"
+    "lint": "eslint"
+   
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.14",
