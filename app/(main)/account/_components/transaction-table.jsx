@@ -5,6 +5,7 @@ import {
   TableBody,
   TableCaption,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -14,6 +15,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns/format";
 import { categoryColors } from "@/lib/data/categories";
 import { Badge } from "@/components/ui/badge";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
   Tooltip,
   TooltipContent,
@@ -70,7 +80,10 @@ const TransactionTable = ({ transactions }) => {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+
   const [recurringFilter, setRecurringFilter] = useState("");
+
+  const [currentPage, setCurrentPage] = useState(1);
   const filteredTransactions = useMemo(() => {
     let results = [...transactions];
     //search filter
@@ -122,6 +135,15 @@ const TransactionTable = ({ transactions }) => {
     });
     return results;
   }, [searchTerm, typeFilter, recurringFilter, sortconfig]);
+
+  const pageSize = 10;
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredTransactions.slice(start, end);
+  }, [currentPage, filteredTransactions]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize);
   const handleSort = (field) => {
     setSortConfig((current) => ({
       field,
@@ -198,7 +220,7 @@ const TransactionTable = ({ transactions }) => {
         <BarLoader className="mt-4" width="100%" color="#9333ea" />
       )}
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 my-4">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -312,7 +334,7 @@ const TransactionTable = ({ transactions }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredTransactions.map((transaction) => (
+          {paginatedItems.map((transaction) => (
             <TableRow key={transaction.id}>
               <TableCell>
                 <Checkbox
@@ -398,6 +420,45 @@ const TransactionTable = ({ transactions }) => {
           ))}
         </TableBody>
       </Table>
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              onClick={() => {
+                if (currentPage != 1) setCurrentPage((count) => count - 1);
+              }}
+            />
+          </PaginationItem>
+          {
+            currentPage-1>0 &&
+            <PaginationItem>
+              <PaginationLink onClick={()=>setCurrentPage(currentPage-1)}>
+                  {currentPage-1}
+              </PaginationLink>
+            </PaginationItem>
+          }
+
+          <PaginationItem className="bg-blue-700 text-white px-2 rounded">
+            {currentPage}
+          </PaginationItem>
+          {
+            currentPage<=pageSize &&
+            <PaginationItem>
+              <PaginationLink onClick={()=>setCurrentPage(currentPage+1)}>
+                  {currentPage+1}
+              </PaginationLink>
+            </PaginationItem>
+          }
+          <PaginationItem>
+            <PaginationEllipsis />
+          </PaginationItem>
+          <PaginationItem>
+            <PaginationNext
+              onClick={() => setCurrentPage((count) => count + 1)}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
     </div>
   );
 };
